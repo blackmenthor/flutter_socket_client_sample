@@ -1,17 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter_socket_sample/core/socket_message.dart';
+import 'package:flutter_udid/flutter_udid.dart';
 import 'package:socket_io_client/socket_io_client.dart';
 
-enum SocketStatus {
-  IDLE,
-  CONNECTING,
-  CONNECTED,
-  ERROR
-}
+enum SocketStatus { IDLE, CONNECTING, CONNECTED, ERROR }
 
 class SocketController {
-
   List<SocketMessage> _tempMessages = [];
 
   StreamController<SocketStatus> _statusCtrl = StreamController();
@@ -22,8 +17,14 @@ class SocketController {
 
   Socket socket;
 
-  init() {
+  String udid;
+  String channel;
+
+  init() async {
     print("Initializing Socket...");
+
+    udid = await FlutterUdid.udid;
+    channel = "device-$udid";
 
     // initial status
     _statusCtrl.add(SocketStatus.IDLE);
@@ -32,6 +33,7 @@ class SocketController {
     socket = io('http://128.199.203.128:4200', <String, dynamic>{
       'transports': ['websocket'],
       'autoConnect': false,
+      'extraHeaders': {'id': udid}
     });
 
     socket.on('connect', (_) {
@@ -40,10 +42,7 @@ class SocketController {
     });
 
     socket.on('messages', (msg) {
-      SocketMessage message = SocketMessage(
-        SocketMessageOrigin.SERVER,
-        msg
-      );
+      SocketMessage message = SocketMessage(SocketMessageOrigin.SERVER, msg);
 
       _tempMessages.add(message);
       _messageCtrl.add(_tempMessages);
@@ -55,11 +54,8 @@ class SocketController {
 
   sendMessage(String msg) {
     print("sending message");
-    socket.emit("messages", msg);
-    SocketMessage message = SocketMessage(
-        SocketMessageOrigin.FLUTTER,
-        msg
-    );
+    socket.emit('messages', msg);
+    SocketMessage message = SocketMessage(SocketMessageOrigin.FLUTTER, msg);
     _tempMessages.add(message);
     _messageCtrl.add(_tempMessages);
   }
@@ -70,5 +66,4 @@ class SocketController {
     socket.disconnect();
     socket.destroy();
   }
-
 }
